@@ -104,12 +104,12 @@ class SupportAI(base_agent.BaseAgent):
     smart_actions = []
     rl_action = None
 
-    def __init__(self):
+    def __init__(self,game_type):
         super(SupportAI, self).__init__()
 
         self.previous_action = None
         self.previous_state = None
-        self.init_smart_action_list("tvp")
+        self.init_smart_action_list(game_type)
         self.qlearn = QLearningTable(actions=list(range(len(self.smart_actions))))
 
         self.app = QApplication(sys.argv)
@@ -118,6 +118,7 @@ class SupportAI(base_agent.BaseAgent):
         if os.path.isfile(DATA_FILE + '.gz'):
             self.qlearn.q_table = pd.read_pickle(DATA_FILE + '.gz', compression='gzip')
             print(self.qlearn.q_table)
+
 
     def init_smart_action_list(self, strategy_type):
         strategy = strategys(strategy_type)
@@ -195,20 +196,21 @@ class SupportAI(base_agent.BaseAgent):
         return actions.FUNCTIONS.no_op()
 
 def main(unused_argv):
-    agent = SupportAI()
+    agent = SupportAI(game_type)
+
     try:
         while True:
             with sc2_env.SC2Env(
                     map_name="Simple64",
-                    players=[sc2_env.Agent(sc2_env.Race.terran),
-                             sc2_env.Bot(sc2_env.Race.protoss,
+                    players=[sc2_env.Agent(player_race),
+                             sc2_env.Bot(enemy_race,
                                          sc2_env.Difficulty.very_easy)],
                     agent_interface_format=features.AgentInterfaceFormat(
                         feature_dimensions=features.Dimensions(screen=86, minimap=86),
                     use_feature_units=True),
                     step_mul=16,
                     game_steps_per_episode=0,
-                    visualize=True,
+                    visualize=False,
                     realtime=True) as env:
 
                 feats = features.Features(
@@ -239,6 +241,10 @@ def main(unused_argv):
         pass
 
 if __name__ == "__main__":
+    player_race = sc2_env.Race.terran
+    enemy_race = sc2_env.Race.protoss
+    game_type = "tvp"
     app.run(main)
+
 
 

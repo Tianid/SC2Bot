@@ -1,11 +1,16 @@
 import sys
+import threading
+import queue
 import time
 from threading import Thread
+from typing import Optional, Callable, Any, Iterable, Mapping
+
 import psycopg2
 
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
+
 
 class W(QMessageBox):
     def __init__(self):
@@ -19,6 +24,7 @@ class W(QMessageBox):
         self.setStyleSheet("QScrollArea{min-width:500 px; min-height: 200px}")
         self.show()
 
+
     def add(self, string):
         self.lay.addWidget(QLabel(string, self))
 
@@ -28,4 +34,5 @@ if __name__ == "__main__":
     gui.add("kek")
     gui.add("kek")
     sys.exit(app.exec_())
+
 
