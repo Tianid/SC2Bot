@@ -11,7 +11,6 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-
 class W(QMessageBox):
     def __init__(self):
         QMessageBox.__init__(self)
@@ -27,6 +26,10 @@ class W(QMessageBox):
 
     def add(self, string):
         self.lay.addWidget(QLabel(string, self))
+
+    @pyqtSlot(str)
+    def handleSuperDupa(self, input_string):
+        self.add(input_string)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

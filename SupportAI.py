@@ -1,3 +1,4 @@
+import multiprocessing
 import random
 import math
 import sys
@@ -13,18 +14,18 @@ import os.path
 import numpy as np
 import pandas as pd
 
+
 from pysc2.agents import base_agent
 from pysc2.env import sc2_env
 from pysc2.lib import actions, features, units
 from pysc2.lib import features
-from custom_buildings import Zerg,Terran,Protoss
+from custom_buildings import Zerg, Terran, Protoss
 from strategys import strategys
 
 from GUI import *
 
-
-
 DATA_FILE = 'T_v_P'
+
 
 # class DataBase:
 #     conn = psycopg2.connect(dbname='Qlearning', user='postgress',
@@ -45,11 +46,9 @@ DATA_FILE = 'T_v_P'
 #         self.cursor.execute('INSERT INTO public."Value"(value_id, fk_action_id, fk_state_id, "Value") VALUES ({}, {}, {}, {})'.format(value_id,action_id,state_id,value))
 
 
-
-
 class QLearningTable:
     def __init__(self, actions, learning_rate=0.01, reward_decay=0.9, e_greedy=0.9):
-        self.actions = actions 
+        self.actions = actions
         self.lr = learning_rate
         self.gamma = reward_decay
         self.epsilon = e_greedy
@@ -59,9 +58,21 @@ class QLearningTable:
     def choose_action(self, observation):
         self.check_state_exist(observation)
         state_action = self.q_table.ix[observation, :]
-        state_action = state_action.reindex(np.random.permutation(state_action.index))
-        print(str(state_action.idxmax()) + " max")
-        action = state_action.idxmax()
+
+        if np.random.uniform() < self.epsilon:
+            # some actions have the same value
+            state_action = state_action.reindex(np.random.permutation(state_action.index))
+
+            action = state_action.idxmax()
+        else:
+            # choose random action
+            action = np.random.choice(state_action.index)
+
+
+        # state_action = self.q_table.ix[observation, :]
+        # state_action = state_action.reindex(np.random.permutation(state_action.index))
+        # print(str(state_action.idxmax()) + " max")
+        # action = state_action.idxmax()
         return action
 
     def learn(self, s, a, r, s_):
@@ -77,15 +88,14 @@ class QLearningTable:
 
         s_rewards = self.q_table.ix[s_, :]
 
-
         if s_ != 'terminal':
             q_target = r + self.gamma * s_rewards.max()
         else:
-            q_target = r 
+            q_target = r
 
         self.q_table.ix[s, a] += self.lr * (q_target - q_predict)
 
-    def set_state_value(self,s,a,v):
+    def set_state_value(self, s, a, v):
         self.q_table.ix[s, a] = v
 
     def check_state_exist(self, state):
@@ -95,16 +105,15 @@ class QLearningTable:
                 pd.Series([0] * len(self.actions), index=self.q_table.columns, name=state))
 
 
-
-class SupportAI(base_agent.BaseAgent):
-
+class SupportAI(QObject, base_agent.BaseAgent):
     list_of_unic_enemy_buildings = []
     init_list_enemy_buildings = []
     state_list = []
     smart_actions = []
     rl_action = None
+    signalSuperDupa = pyqtSignal(str)
 
-    def __init__(self,game_type):
+    def __init__(self, game_type):
         super(SupportAI, self).__init__()
 
         self.previous_action = None
@@ -112,13 +121,13 @@ class SupportAI(base_agent.BaseAgent):
         self.init_smart_action_list(game_type)
         self.qlearn = QLearningTable(actions=list(range(len(self.smart_actions))))
 
-        self.app = QApplication(sys.argv)
-        self.gui = W()
+        self.gui = qt_widget
+        self.signalSuperDupa.connect(self.gui.handleSuperDupa)
+
         # self.data_base = DataBase()
         if os.path.isfile(DATA_FILE + '.gz'):
             self.qlearn.q_table = pd.read_pickle(DATA_FILE + '.gz', compression='gzip')
             print(self.qlearn.q_table)
-
 
     def init_smart_action_list(self, strategy_type):
         strategy = strategys(strategy_type)
@@ -126,7 +135,6 @@ class SupportAI(base_agent.BaseAgent):
 
     def init_state_list(self):
         return np.zeros(45)
-
 
     def init_type_list_of_enemy_buildings(self):
         list = []
@@ -144,11 +152,10 @@ class SupportAI(base_agent.BaseAgent):
                 self.list_of_unic_enemy_buildings.append(unit.unit_type)
                 self.new_state()
 
-
     def new_state(self):
-        index = self.init_list_enemy_buildings.index(self.list_of_unic_enemy_buildings[len(self.list_of_unic_enemy_buildings) - 1])
+        index = self.init_list_enemy_buildings.index(
+            self.list_of_unic_enemy_buildings[len(self.list_of_unic_enemy_buildings) - 1])
         self.state_list[index] = 1
-
 
     def step(self, obs):
         super(SupportAI, self).step(obs)
@@ -176,7 +183,6 @@ class SupportAI(base_agent.BaseAgent):
 
         self.set_unic_buildings_to_list_of_unic_buildings_from_screen_and_generate_new_state(obs)
 
-
         if self.previous_action is not None:
             self.qlearn.learn(str(self.previous_state), self.previous_action, 0, str(self.state_list))
 
@@ -185,8 +191,7 @@ class SupportAI(base_agent.BaseAgent):
 
             self.previous_state = self.state_list.copy()
             self.previous_action = self.rl_action
-
-            self.gui.add(self.smart_actions[self.rl_action])
+            self.signalSuperDupa.emit(self.smart_actions[self.rl_action])
 
         print(self.smart_actions[self.rl_action] + " do action")
         print(str(self.rl_action) + " do action")
@@ -194,6 +199,7 @@ class SupportAI(base_agent.BaseAgent):
         print(self.state_list)
 
         return actions.FUNCTIONS.no_op()
+
 
 def main(unused_argv):
     agent = SupportAI(game_type)
@@ -207,7 +213,7 @@ def main(unused_argv):
                                          sc2_env.Difficulty.very_easy)],
                     agent_interface_format=features.AgentInterfaceFormat(
                         feature_dimensions=features.Dimensions(screen=86, minimap=86),
-                    use_feature_units=True),
+                        use_feature_units=True),
                     step_mul=16,
                     game_steps_per_episode=0,
                     visualize=False,
@@ -240,11 +246,38 @@ def main(unused_argv):
     except KeyboardInterrupt:
         pass
 
+
+class sc_thread(QThread):
+    def __init__(self):
+        QThread.__init__(self)
+        self.sig = pyqtSignal()
+
+    def run(self):
+        print("sc-thread is started")
+        self.run_main()
+
+    def run_main(self):
+        app.run(main)
+
+    def __del__(self):
+        print("sc-thread is over")
+
+
+
 if __name__ == "__main__":
+
     player_race = sc2_env.Race.terran
     enemy_race = sc2_env.Race.protoss
     game_type = "tvp"
-    app.run(main)
+
+    qt_app = QApplication(sys.argv)
+    qt_widget = W()
+
+    sc_therad = sc_thread()
+    sc_therad.start()
+
+    # app.run(qt_app.exec_())
+    sys.exit((qt_app.exec_()))
 
 
-
+    # app.run(main)
